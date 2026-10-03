@@ -24,11 +24,15 @@ and its configuration and data volume are retained for an administrator to migra
 
 ## Install
 
-Version 0.1.0 pins the checksum-verified Desktop 0.11.4 Linux runtime.
-Install the GitHub release asset:
+Cloud Agent 0.1.1 pins the checksum-verified Desktop 0.11.7 Linux runtime for
+new installations. The immutable published 0.1.0 package continues to use
+Desktop 0.11.4. Existing installations keep their configured runtime image
+until a separately reviewed image upgrade.
+
+Install the immutable 0.1.1 GitHub release asset:
 
 ```sh
-npm install --global https://github.com/resolveup-cloud/vault-cloud-agent/releases/download/v0.1.0/vault-cloud-agent-0.1.0.tgz
+npm install --global https://github.com/resolveup-cloud/vault-cloud-agent/releases/download/v0.1.1/vault-cloud-agent-0.1.1.tgz
 vault-cloud-agent install
 vault-cloud-agent start
 vault-cloud-agent status
@@ -39,7 +43,7 @@ vault-cloud-agent pair
 Wait for healthy status before registering projects or pairing. Distribution is
 through the GitHub release asset; a public npm registry package is not required.
 For a local checkout, use `npm pack`, then
-`npm install --global ./vault-cloud-agent-0.1.0.tgz`.
+`npm install --global ./vault-cloud-agent-0.1.1.tgz`.
 
 `install` builds a local Docker image from a checksum-pinned Desktop AppImage and
 creates an owned persistent volume. It can take several minutes and downloads
@@ -142,6 +146,13 @@ socket or other host path is automatically mounted. The container user is UID
 1000; grant that user appropriate host directory access yourself if needed. The
 installer does not change your project ownership or copy host credentials.
 
+Installing a newer Cloud Agent package does not change the image recorded in an
+existing configuration. Repeating `install` preserves that image and its volume;
+`stop` ends running work. An existing installation needs a separately reviewed
+image upgrade during an idle maintenance window, with a complete consistent
+volume/configuration backup and unchanged device identity. Do not delete its
+configuration or volume to obtain a newer runtime.
+
 After the runtime reports healthy, run `vault-cloud-agent projects` on the server.
 This registers only these explicit mounts in the Vault project catalog through
 its authenticated local runtime and prints workspace selectors. Repeat it safely:
@@ -151,8 +162,18 @@ Remote computers cannot register project groups under the narrow grants above;
 project onboarding stays with the server owner. Read-only mounts remain enforced
 by Docker even after a device receives files and terminal capabilities.
 
-Log in to your chosen AI agent using its supported login flow in an approved
-Vault terminal. Codex and Claude are included with pinned versions; AI provider
+Desktop 0.11.7 adds a scoped remote login flow for the selected native Claude or
+Codex agent in an approved Pair mirror. It requires both terminal and files
+permission, the same authorized session/mirror and an installed supported Linux
+CLI. Provider login remains your action: follow the provider's own challenge and
+consent flow. The runtime checks the existing selected provider account first;
+a ready account does not create a new login job. Cancelling an incomplete login
+ends only that scoped job. Successful cleanup removes its owned pending
+credentials; uncertain cleanup remains quarantined and requires recovery. An
+offline client does not revoke an approved device or erase previously copied files.
+
+Log in to your chosen AI agent using this flow or its supported login flow in an
+approved Vault terminal. Codex and Claude are included with pinned versions; AI provider
 accounts and permissions remain your responsibility. The selected provider
 receives context sent to it by the agent.
 

@@ -189,3 +189,30 @@ test('pair refuses revoked startup credentials after consulting the live local r
   await subject.runCli(['pair', '--state-dir', state, '--json'], deps);
   assert.equal(JSON.parse(output.at(-1)).url, url);
 });
+
+test('0.1.1 release version and help agree with its package metadata', async () => {
+  const metadata = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(metadata.version, '0.1.1');
+  const version = [];
+  await subject.runCli(['--version'], { write: value => version.push(value) });
+  assert.deepEqual(version, [metadata.version]);
+  assert.match(subject.HELP, /^Vault Cloud Agent 0\.1\.1 /);
+});
+
+test('0.1.1 names its built runtime image without upgrading an existing installation', async () => {
+  const state = await mkdtemp(join(tmpdir(), 'vault-agent-release-011-'));
+  const fake = fakeDocker();
+  const calls = [];
+  const output = [];
+  const deps = { write: value => output.push(value), run: async args => {
+    calls.push(args); return fake.run(args);
+  } };
+  await subject.runCli(['install', '--state-dir', state, '--json'], deps);
+  const build = calls.find(args => args[0] === 'build');
+  const release = JSON.parse(await readFile(new URL('../assets/runtime-release.json', import.meta.url), 'utf8'));
+  assert.equal(build[build.indexOf('--tag') + 1], `vault-cloud-agent-runtime:0.1.1-desktop-${release.version}`);
+  const configuration = await readFile(join(state, 'config.json'), 'utf8');
+  await subject.runCli(['install', '--state-dir', state, '--json'], deps);
+  assert.equal(calls.filter(args => args[0] === 'build').length, 1);
+  assert.equal(await readFile(join(state, 'config.json'), 'utf8'), configuration);
+});

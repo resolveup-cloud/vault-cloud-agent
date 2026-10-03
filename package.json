@@ -1,6 +1,6 @@
 {
   "name": "vault-cloud-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Run a private Vault headless runtime on your own Docker machine",
   "type": "module",
   "bin": {
