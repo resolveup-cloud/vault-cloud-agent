@@ -1,0 +1,31 @@
+{
+  "name": "vault-cloud-agent",
+  "version": "0.1.0",
+  "description": "Run a private Vault headless runtime on your own Docker machine",
+  "type": "module",
+  "bin": {
+    "vault-cloud-agent": "vault-cloud-agent.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "vault-cloud-agent.mjs",
+    "lib/",
+    "assets/",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "gutierrezhenrique <gutierrez2010@hotmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/resolveup-cloud/vault-cloud-agent.git"
+  },
+  "homepage": "https://github.com/resolveup-cloud/vault-cloud-agent#readme"
+}
