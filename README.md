@@ -24,15 +24,15 @@ and its configuration and data volume are retained for an administrator to migra
 
 ## Install
 
-Cloud Agent 0.1.1 pins the checksum-verified Desktop 0.11.7 Linux runtime for
+Cloud Agent 0.2.0 pins the checksum-verified Desktop 0.11.7 Linux runtime for
 new installations. The immutable published 0.1.0 package continues to use
 Desktop 0.11.4. Existing installations keep their configured runtime image
 until a separately reviewed image upgrade.
 
-Install the immutable 0.1.1 GitHub release asset:
+Install the immutable 0.2.0 GitHub release asset:
 
 ```sh
-npm install --global https://github.com/resolveup-cloud/vault-cloud-agent/releases/download/v0.1.1/vault-cloud-agent-0.1.1.tgz
+npm install --global https://github.com/resolveup-cloud/vault-cloud-agent/releases/download/v0.2.0/vault-cloud-agent-0.2.0.tgz
 vault-cloud-agent install
 vault-cloud-agent start
 vault-cloud-agent status
@@ -43,7 +43,7 @@ vault-cloud-agent pair
 Wait for healthy status before registering projects or pairing. Distribution is
 through the GitHub release asset; a public npm registry package is not required.
 For a local checkout, use `npm pack`, then
-`npm install --global ./vault-cloud-agent-0.1.1.tgz`.
+`npm install --global ./vault-cloud-agent-0.2.0.tgz`.
 
 `install` builds a local Docker image from a checksum-pinned Desktop AppImage and
 creates an owned persistent volume. It can take several minutes and downloads
@@ -121,15 +121,24 @@ identity, authorization checks and revocation behavior. Command mapping:
 | `approve ID --terminals --files --git` | `vault-desktop link approve --device ID --terminals --files --git --pair --json` |
 | `revoke ID` | `vault-desktop link revoke --device ID --json` |
 
-`pair` reveals the current startup offer; it does not mint a new grant or rotate
-credentials. Direct runtime offers have no automatic expiration. Restarting is
-not revocation or guaranteed token rotation. Revoke a leaked or unwanted device
-through the runtime's supported local command, then create a new offer through
-its supported pairing flow. Do not reuse a credential across multiple computers.
-The wrapper validates offer version, scope, public key, token and advertised
-endpoint, and refuses expired offers if a future runtime supplies an expiration.
-It also queries the live local runtime and refuses a startup credential whose
-device has been revoked or removed. That check does not rotate or reauthorize it.
+`pair` shows the runtime's startup offer **once**. The offer expires 10 minutes
+after it is shown: pair and approve within that window. Running `pair` again
+refuses to re-display it. An offer that was shown but never approved is revoked
+in the runtime (through `vault-desktop link revoke`) the next time you run
+`pair` or `devices` after it expired; an offer whose device you approved is
+spent and never shown again. `pair` records only the device ID and when the
+offer was shown (`pairing-offers.json` in the state directory), never the
+credential.
+
+To pair another computer, or if the link was lost, run `vault-cloud-agent pair
+--new`: it revokes the current offer if it was never approved (an approved
+device keeps its access), then restarts the runtime so it mints a fresh offer.
+The restart stops running terminals and agents. Wait for healthy status, then
+run `pair` again. Revoke a leaked or unwanted approved device with `revoke`.
+Do not reuse a credential across multiple computers. The wrapper validates offer
+version, scope, public key, token and advertised endpoint, refuses expired
+offers if the runtime supplies an expiration, and refuses a startup credential
+whose device has been revoked or removed.
 
 ## Projects, persistence and agent accounts
 
@@ -140,7 +149,17 @@ vault-cloud-agent install --project /srv/reference --writable-project /srv/my-pr
 ```
 
 Each mount appears at `/projects/1-reference`, `/projects/2-my-project`, and so
-on, in argument order. Paths with spaces work; commas and control characters
+on, in argument order.
+
+`--writable-project` prints a warning: Vault agents and approved devices can
+change files you may later build, test or run on the host. To keep container
+code from planting commands that git runs on the host, an existing `.git/hooks`
+directory and `.git/config` file of a writable project are mounted read-only
+on top of the writable mount (symlinks are not followed). Git operations in the
+container that write `.git/config` (adding remotes, setting upstreams) fail;
+do them on the host. Paths created after the container was first started are
+not covered, and other project files (package scripts, editor tasks, Makefiles)
+remain writable: review changes before running them on the host. Paths with spaces work; commas and control characters
 are refused because Docker uses them as mount delimiters. No host home, Docker
 socket or other host path is automatically mounted. The container user is UID
 1000; grant that user appropriate host directory access yourself if needed. The
