@@ -245,12 +245,62 @@ the sandbox or run the container privileged. A manually removed volume is not
 recoverable by this CLI. Docker daemon errors are reported without echoing
 arguments or raw runtime output.
 
+## Vault Fabric runner (opt-in)
+
+The `fabric` commands add a second, independent container that joins your Vault
+Fabric account as a device and runs Fabric jobs inside the gVisor sandbox. Nothing
+changes for the Desktop runtime above: the runner has its own state file
+(`fabric.json`), owner label, volume and image, and `install`/`start`/`pair` never
+touch it.
+
+```sh
+# Create a single-use enrollment code in Vault Fabric (Devices → Add), then:
+vault-cloud-agent fabric enroll --server https://vaultmemoryai.com < code.txt
+vault-cloud-agent fabric start
+vault-cloud-agent fabric status
+vault-cloud-agent fabric stop
+```
+
+- The enrollment code is read from stdin only; it never appears in Docker argv,
+  container metadata or the state directory.
+- `enroll` downloads `vault-agent-linux-amd64` from the control plane and checks it
+  against the control plane's `SHA256SUMS` (integrity, not a separate signature),
+  or uses `--agent-binary <file>` for a local build, and bakes it into a local
+  image together with its SHA-256.
+- The runner uses `--runtime=runsc` (checked before enrollment and every start), runs
+  as uid 1000 with all capabilities dropped, `no-new-privileges`, a read-only root
+  filesystem, a 512-process and 4 GiB memory limit, no published port and no host
+  path mount. Jobs run in Fabric job worktrees inside the runner volume and see only
+  the container environment.
+- The device reports the scheduling tag `vault-runner:gvisor-docker`; target it with
+  `requirements.tags` on a job. Tags are self-reported scheduling hints, not proof of
+  isolation.
+- Only AI executors whose CLI is in the image are offered; the runner image ships
+  none, so out of the box it runs nothing unless `--allow-shell` was given at
+  enrollment, which lets jobs run `requirements.command` inside the sandbox.
+- `stop` lets running jobs checkpoint and release their lease; a killed runner's jobs
+  are recovered by the control plane after the lease expires.
+
 ## Verify and package
 
 ```sh
 npm test
 npm pack --dry-run
 ```
+
+The Fabric runner end-to-end test starts a disposable Postgres and control plane
+from a vault-fabric checkout and drives enrollment, claim, a job inside the runner,
+lease renewal, cancellation and recovery after `docker kill`:
+
+```sh
+VAULT_CLOUD_AGENT_FABRIC_E2E_CHECKOUT=/path/to/vault-fabric \
+VAULT_CLOUD_AGENT_FABRIC_E2E_AGENT=/path/to/vault-agent-linux-amd64 \
+node --test test/fabric-e2e.test.mjs
+```
+
+It uses the default Docker runtime unless `VAULT_CLOUD_AGENT_FABRIC_E2E_RUNTIME=runsc`
+is set, so without gVisor it proves the Fabric protocol inside the container, not
+the gVisor boundary.
 
 Before release, additionally build and run on a real Linux x64 Docker host;
 verify the pinned artifact checksum, startup, host publication, E2EE pairing,
